@@ -1,0 +1,37 @@
+[project]
+name = "mealmate-ai"
+version = "0.1.0"
+description = "AI-powered recipe assistant using RAG with NVIDIA Build API"
+requires-python = ">=3.12"
+dependencies = [
+    "langchain>=0.3",
+    "langchain-nvidia-ai-endpoints>=0.3",
+    "langchain-postgres>=0.0.12",
+    "langchain-community>=0.3",
+    "streamlit>=1.40",
+    "sqlalchemy>=2.0",
+    "psycopg[binary]>=3.2",
+    "pgvector>=0.3",
+    "python-dotenv>=1.0",
+    "yt-dlp>=2024.0",
+    "beautifulsoup4>=4.12",
+    "pypdf>=5.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

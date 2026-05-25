@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: mealmate-db
+    environment:
+      POSTGRES_DB: mealmate
+      POSTGRES_USER: mealmate
+      POSTGRES_PASSWORD: mealmate_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+volumes:
+  postgres_data:
