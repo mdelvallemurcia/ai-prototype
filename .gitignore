@@ -217,3 +217,7 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 formación.md
+
+# Autoskills
+.agents/
+skills-lock.json

@@ -6,12 +6,12 @@ Last updated: 2026-05-25
 
 ## Sources scanned
 
-- C:\Users\dis19\.agents\skills
 - C:\Users\dis19\.config\opencode\skills
 - C:\Users\dis19\.claude\skills
 - C:\Users\dis19\.gemini\skills
 - C:\Users\dis19\.cursor\skills
 - C:\Users\dis19\.copilot\skills
+- C:\Users\dis19\source\ai-prototype\.claude\skills
 
 ## Contract
 
@@ -35,8 +35,10 @@ Last updated: 2026-05-25
 | `golang-pro` | — | user | `C:\Users\dis19\.agents\skills\golang-pro\SKILL.md` |
 | `issue-creation` | Create Gentle AI issues with issue-first checks. Trigger: creating GitHub issues, bug reports, or feature requests. | user | `C:\Users\dis19\.config\opencode\skills\issue-creation\SKILL.md` |
 | `judgment-day` | Trigger: judgment day, dual review, adversarial review, juzgar. Run blind dual review, fix confirmed issues, then re-judge. | user | `C:\Users\dis19\.config\opencode\skills\judgment-day\SKILL.md` |
+| `python-testing` | Trigger: Python tests, pytest, fixtures, mocking, coverage. Apply focused pytest testing patterns. | user | `C:\Users\dis19\.claude\skills\python-testing\SKILL.md` |
 | `skill-creator` | Trigger: new skills, agent instructions, documenting AI usage patterns. Create LLM-first skills with valid frontmatter. | user | `C:\Users\dis19\.config\opencode\skills\skill-creator\SKILL.md` |
 | `skill-improver` | Trigger: improve skills, audit skills, refactor skills, skill quality. Audit and upgrade existing LLM-first skills. | user | `C:\Users\dis19\.config\opencode\skills\skill-improver\SKILL.md` |
+| `sqlalchemy-alembic-expert-best-practices-code-review` | SQLAlchemy ORM and Alembic migration best practices for building safe, performant database schemas. This skill should be used when writing, reviewing, or refactoring SQLAlchemy models, Alembic migrations, or database query patterns. Triggers on tasks involving SQLAlchemy ORM, Alembic migrations, database schema changes, or query optimization. | project | `C:\Users\dis19\source\ai-prototype\.claude\skills\sqlalchemy-alembic-expert-best-practices-code-review\SKILL.md` |
 | `tailwind-design-system` | — | user | `C:\Users\dis19\.agents\skills\tailwind-design-system\SKILL.md` |
 | `work-unit-commits` | Plan commits as reviewable work units. Trigger: implementation, commit splitting, chained PRs, or keeping tests and docs with code. | user | `C:\Users\dis19\.config\opencode\skills\work-unit-commits\SKILL.md` |
 

@@ -1,4 +1,6 @@
-# MealMate AI - Recipe Assistant
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
@@ -24,6 +26,13 @@ User → Streamlit Chat → LangChain RAG Chain → pgvector retrieval → NVIDI
                                         CLI Worker (ingestion pipeline)
                                         YouTube | PDFs | Websites → chunks → embeddings → pgvector
 ```
+
+**Three source packages under `src/`:**
+- `core/` — shared infrastructure: config, DB engine, embeddings client, retriever. All wired as **module-level singletons** (imported, not constructed).
+- `web/` — Streamlit chat app. Currently a stub with TODO for RAG chain integration.
+- `worker/` — CLI ingestion pipeline. Each source type has a loader in `worker/loaders/` using LangChain community document loaders.
+
+**Key wiring detail:** `core/config.py` calls `load_dotenv()` and reads env vars at **import time** via a frozen dataclass default. `core/database.py`, `core/embeddings.py`, and `core/retriever.py` all create their singletons (engine, embeddings client, vector store) at import time too. This means importing any `core` module triggers real connections — mock or patch these in tests before importing dependent modules.
 
 ## Project Structure
 
@@ -71,10 +80,11 @@ uv run python -m src.worker.cli ingest --source <url-or-path>
 ### Testing
 
 ```bash
-uv run pytest                       # All tests (with coverage)
-uv run pytest tests/unit/           # Unit only
-uv run pytest tests/integration/    # Integration (requires DB)
-uv run pytest --no-cov              # Skip coverage
+uv run pytest                                    # All tests (with coverage)
+uv run pytest tests/unit/                        # Unit only
+uv run pytest tests/integration/                 # Integration (requires DB)
+uv run pytest tests/unit/test_foo.py::test_bar   # Single test
+uv run pytest --no-cov                           # Skip coverage
 ```
 
 ### Linting
@@ -108,12 +118,16 @@ uv run ruff format .
 - All config via environment variables loaded from `.env`
 - Never commit `.env`
 - Prefix app-specific vars with `MEALMATE_`
+- Key vars: `MEALMATE_NVIDIA_API_KEY`, `MEALMATE_NVIDIA_MODEL`, `MEALMATE_NVIDIA_EMBED_MODEL`, `MEALMATE_DB_URL`
+- Config lives in `src/core/config.py` as a frozen `Settings` dataclass
 
 ### Database
 
 - pgvector for embeddings storage and similarity search
+- PostgreSQL 17 (`pgvector/pgvector:pg17` image)
 - SQLAlchemy as ORM
 - Init scripts in `deploy/database/`
+- PGVector vector store in `core/retriever.py` with collection name `recipes`, cosine similarity, k=5
 
 ### Ingestion Pipeline
 
