@@ -221,3 +221,4 @@ formación.md
 # Autoskills
 .agents/
 skills-lock.json
+.atl/.skill-registry.cache.json
