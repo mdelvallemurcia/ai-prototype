@@ -6,12 +6,13 @@ Last updated: 2026-05-25
 
 ## Sources scanned
 
+- .claude\skills
+- C:\Users\dis19\.agents\skills
 - C:\Users\dis19\.config\opencode\skills
 - C:\Users\dis19\.claude\skills
 - C:\Users\dis19\.gemini\skills
 - C:\Users\dis19\.cursor\skills
 - C:\Users\dis19\.copilot\skills
-- C:\Users\dis19\source\ai-prototype\.claude\skills
 
 ## Contract
 
