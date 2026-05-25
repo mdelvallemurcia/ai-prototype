@@ -71,9 +71,10 @@ uv run python -m src.worker.cli ingest --source <url-or-path>
 ### Testing
 
 ```bash
-uv run pytest                       # All tests
+uv run pytest                       # All tests (with coverage)
 uv run pytest tests/unit/           # Unit only
 uv run pytest tests/integration/    # Integration (requires DB)
+uv run pytest --no-cov              # Skip coverage
 ```
 
 ### Linting
@@ -84,6 +85,17 @@ uv run ruff format .
 ```
 
 ## Conventions
+
+### Testing
+
+- **Pattern**: AAA (Arrange-Act-Assert) — every test has three clearly separated blocks
+- **Naming**: `test_<unit>_<scenario>_<expected>` (e.g. `test_load_pdf_empty_file_returns_empty_list`)
+- **Coverage**: 80% minimum enforced via `pytest-cov` (configured in `pyproject.toml`)
+- **Unit tests** (`tests/unit/`): fast, no external dependencies. Mock DB, APIs, and filesystem
+- **Integration tests** (`tests/integration/`): hit real PostgreSQL (Docker). No mocking the DB here
+- **Libraries**: pytest, pytest-asyncio, pytest-cov
+- **Fixtures**: shared fixtures go in `conftest.py` at the appropriate level (`tests/`, `tests/unit/`, `tests/integration/`)
+- **What to mock**: NVIDIA API calls, filesystem access, network requests. Never mock the thing you're testing
 
 ### Code Style
 
