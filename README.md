@@ -34,8 +34,18 @@ uv run streamlit run src/web/app.py
 
 ## Running Tests
 
+Coverage is enforced at 80% minimum (`--cov-fail-under=80`, configured in `pyproject.toml`).
+
 ```bash
 uv run pytest                   # All tests (with coverage)
 uv run pytest tests/unit/       # Unit only
-uv run pytest tests/integration # Integration (requires DB running)
+uv run pytest tests/integration # Integration (uses Testcontainers)
+uv run pytest --no-cov          # Skip coverage
+```
+
+## Linting
+
+```bash
+uv run ruff check .             # Lint
+uv run ruff format .            # Format
 ```

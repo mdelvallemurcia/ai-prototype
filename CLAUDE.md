@@ -28,11 +28,11 @@ User → Streamlit Chat → LangChain RAG Chain → pgvector retrieval → NVIDI
 ```
 
 **Three source packages under `src/`:**
-- `core/` — shared infrastructure: config, DB engine, embeddings client, retriever. All wired as **module-level singletons** (imported, not constructed).
+- `core/` — shared infrastructure via **DI container** (`container.py`). `Settings` dataclass in `config.py`, all services (engine, embeddings, vector store, retriever) lazily created by `Container` on first access.
 - `web/` — Streamlit chat app. Currently a stub with TODO for RAG chain integration.
 - `worker/` — CLI ingestion pipeline. Each source type has a loader in `worker/loaders/` using LangChain community document loaders.
 
-**Key wiring detail:** `core/config.py` calls `load_dotenv()` and reads env vars at **import time** via a frozen dataclass default. `core/database.py`, `core/embeddings.py`, and `core/retriever.py` all create their singletons (engine, embeddings client, vector store) at import time too. This means importing any `core` module triggers real connections — mock or patch these in tests before importing dependent modules.
+**Key wiring detail:** Use `create_container()` to get a `Container` with all dependencies. In tests, construct `Container(settings)` directly with a custom `Settings` instance (e.g., Testcontainers DB URL). No import-time side effects — all connections are deferred until the property is accessed.
 
 ## Project Structure
 
@@ -41,7 +41,7 @@ src/
 ├── web/          # Streamlit chat application
 ├── worker/       # CLI ingestion pipeline (manual trigger)
 │   └── loaders/  # Source-specific loaders (youtube, pdf, web)
-└── core/         # Shared modules (config, DB, embeddings, retriever)
+└── core/         # DI container, config, and shared infrastructure
 deploy/
 ├── docker-compose.yml  # PostgreSQL + pgvector (+ future services like Grafana)
 └── database/           # DB init scripts
@@ -52,47 +52,34 @@ tests/
 
 ## Development
 
-### Prerequisites
+See `README.md` for full setup instructions (Docker, uv sync, .env config).
 
-- Python 3.12+
-- uv
-- Docker & Docker Compose
-
-### Setup
+**Quick reference:**
 
 ```bash
-docker compose -f deploy/docker-compose.yml up -d
-uv sync
-cp .env.example .env
-# Edit .env with your NVIDIA API key
-```
-
-### Run
-
-```bash
-# Chat UI
-uv run streamlit run src/web/app.py
-
-# Ingest content
-uv run python -m src.worker.cli ingest --source <url-or-path>
-```
-
-### Testing
-
-```bash
-uv run pytest                                    # All tests (with coverage)
+uv run streamlit run src/web/app.py              # Chat UI
+uv run python -m src.worker.cli ingest --source <url>  # Ingest content
+uv run pytest                                    # All tests (with coverage, 80% min)
 uv run pytest tests/unit/                        # Unit only
-uv run pytest tests/integration/                 # Integration (requires DB)
-uv run pytest tests/unit/test_foo.py::test_bar   # Single test
+uv run pytest tests/integration/                 # Integration (Testcontainers)
 uv run pytest --no-cov                           # Skip coverage
+uv run ruff check .                              # Lint
+uv run ruff format .                             # Format
 ```
 
-### Linting
+## Documentation
 
-```bash
-uv run ruff check .
-uv run ruff format .
-```
+- `docs/architecture.md` — detailed system architecture, component wiring, and implementation status
+- `docs/decisions/` — Architecture Decision Records (ADRs) explaining the "why" behind technical choices
+
+## Agent Rules
+
+- Never commit or push code. Only modify files — the developer handles git.
+- Never add new libraries or dependencies without asking first.
+- Never replace the current LLM provider, vector store, or UI framework without discussion.
+- Don't bypass the DI container — all core services must be accessed through `Container` (see `docs/decisions/004-di-container.md`).
+- Don't tune chunking parameters (`chunk_size`, `chunk_overlap`) without discussion.
+- Always use `uv run`, never raw `python` or `pip`.
 
 ## Conventions
 
@@ -102,7 +89,7 @@ uv run ruff format .
 - **Naming**: `test_<unit>_<scenario>_<expected>` (e.g. `test_load_pdf_empty_file_returns_empty_list`)
 - **Coverage**: 80% minimum enforced via `pytest-cov` (configured in `pyproject.toml`)
 - **Unit tests** (`tests/unit/`): fast, no external dependencies. Mock DB, APIs, and filesystem
-- **Integration tests** (`tests/integration/`): hit real PostgreSQL (Docker). No mocking the DB here
+- **Integration tests** (`tests/integration/`): hit real PostgreSQL via Testcontainers — no mocking the DB, no manual Docker setup needed
 - **Libraries**: pytest, pytest-asyncio, pytest-cov
 - **Fixtures**: shared fixtures go in `conftest.py` at the appropriate level (`tests/`, `tests/unit/`, `tests/integration/`)
 - **What to mock**: NVIDIA API calls, filesystem access, network requests. Never mock the thing you're testing
@@ -127,7 +114,7 @@ uv run ruff format .
 - PostgreSQL 17 (`pgvector/pgvector:pg17` image)
 - SQLAlchemy as ORM
 - Init scripts in `deploy/database/`
-- PGVector vector store in `core/retriever.py` with collection name `recipes`, cosine similarity, k=5
+- PGVector vector store via `Container.vector_store` with collection name `recipes`, cosine similarity, k=5
 
 ### Ingestion Pipeline
 
