@@ -1,66 +1,196 @@
 """Unit tests for src/web/handlers.py — pure logic, no Streamlit runtime needed."""
 
+from unittest.mock import MagicMock
+
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+
+from src.web import handlers
 from src.web.handlers import (
-    build_echo_response,
     extract_file_metadata,
+    stream_reply,
+    to_langchain_messages,
     validate_file_types,
 )
 from tests.conftest import FakeUploadedFile
 
 # ---------------------------------------------------------------------------
-# build_echo_response
+# SYSTEM_PROMPT content (WLI-04)
 # ---------------------------------------------------------------------------
 
 
-def test_build_echo_response_no_files_returns_text_only():
-    # Arrange
-    text = "hola"
-    files: list[dict] = []
-
-    # Act
-    result = build_echo_response(text, files)
+def test_system_prompt_contains_mealmate_identity():
+    # Arrange / Act — module-level constant, just inspect it
 
     # Assert
-    assert result == "Mensaje recibido: 'hola'"
+    assert "MealMate" in handlers.SYSTEM_PROMPT
 
 
-def test_build_echo_response_one_file_returns_singular():
-    # Arrange
-    text = "x"
-    files = [{"name": "a.png", "type": "image/png", "size": 1, "thumbnail": None}]
-
-    # Act
-    result = build_echo_response(text, files)
+def test_system_prompt_contains_domain_keywords():
+    # Arrange / Act
 
     # Assert
-    assert "(1 archivo adjunto)" in result
+    assert any(w in handlers.SYSTEM_PROMPT for w in ["recipe", "recipes", "meal", "meals"])
 
 
-def test_build_echo_response_two_files_returns_plural():
+# ---------------------------------------------------------------------------
+# to_langchain_messages (WLI-05, WLI-06, WLI-10)
+# ---------------------------------------------------------------------------
+
+
+def test_to_langchain_messages_empty_history_returns_only_system_message():
     # Arrange
-    text = "x"
-    files = [
-        {"name": "a.png", "type": "image/png", "size": 1, "thumbnail": None},
-        {"name": "b.pdf", "type": "application/pdf", "size": 2, "thumbnail": None},
+    history: list[dict] = []
+
+    # Act
+    result = to_langchain_messages(history)
+
+    # Assert
+    assert len(result) == 1
+    assert isinstance(result[0], SystemMessage)
+    assert result[0].content == handlers.SYSTEM_PROMPT
+
+
+def test_to_langchain_messages_single_user_turn_maps_to_human_message():
+    # Arrange
+    history = [{"role": "user", "content": "What can I cook?", "files": []}]
+
+    # Act
+    result = to_langchain_messages(history)
+
+    # Assert
+    assert len(result) == 2
+    assert isinstance(result[0], SystemMessage)
+    assert isinstance(result[1], HumanMessage)
+    assert result[1].content == "What can I cook?"
+
+
+def test_to_langchain_messages_alternating_turns_preserves_order():
+    # Arrange
+    history = [
+        {"role": "user", "content": "Hello", "files": []},
+        {"role": "assistant", "content": "Hi there!", "files": []},
+        {"role": "user", "content": "What's for dinner?", "files": []},
     ]
 
     # Act
-    result = build_echo_response(text, files)
+    result = to_langchain_messages(history)
 
     # Assert
-    assert "(2 archivos adjuntos)" in result
+    assert len(result) == 4
+    assert isinstance(result[0], SystemMessage)
+    assert isinstance(result[1], HumanMessage)
+    assert result[1].content == "Hello"
+    assert isinstance(result[2], AIMessage)
+    assert result[2].content == "Hi there!"
+    assert isinstance(result[3], HumanMessage)
+    assert result[3].content == "What's for dinner?"
 
 
-def test_build_echo_response_empty_text_with_file():
+def test_to_langchain_messages_first_element_always_system_message():
     # Arrange
-    text = ""
-    files = [{"name": "a.pdf", "type": "application/pdf", "size": 1, "thumbnail": None}]
+    history = [{"role": "assistant", "content": "Hello!", "files": []}]
 
     # Act
-    result = build_echo_response(text, files)
+    result = to_langchain_messages(history)
 
     # Assert
-    assert result == "Mensaje recibido: '' (1 archivo adjunto)"
+    assert isinstance(result[0], SystemMessage)
+    assert result[0].content == handlers.SYSTEM_PROMPT
+
+
+def test_to_langchain_messages_ignores_files_key_in_message_dict():
+    # Arrange
+    history = [
+        {
+            "role": "user",
+            "content": "What's this?",
+            "files": [{"name": "img.png", "bytes": b"fake-image-data"}],
+        }
+    ]
+
+    # Act
+    result = to_langchain_messages(history)
+
+    # Assert
+    human_msg = result[1]
+    assert isinstance(human_msg, HumanMessage)
+    assert human_msg.content == "What's this?"
+    # No file bytes or filename should appear in any message
+    for msg in result:
+        assert b"fake-image-data" not in str(msg.content).encode()
+        assert "img.png" not in str(msg.content)
+
+
+# ---------------------------------------------------------------------------
+# stream_reply (WLI-07)
+# ---------------------------------------------------------------------------
+
+
+class FakeChunk:
+    """Minimal chunk with a content attribute."""
+
+    def __init__(self, content: str | None) -> None:
+        self.content = content
+
+
+class FakeChunkNoContent:
+    """Chunk with no content attribute at all."""
+
+    pass
+
+
+def test_stream_reply_yields_ordered_text_chunks():
+    # Arrange
+    fake_model = MagicMock()
+    messages = [SystemMessage(content="sys")]
+    chunks = [FakeChunk("Here "), FakeChunk("is "), FakeChunk("pasta.")]
+    fake_model.stream.return_value = iter(chunks)
+
+    # Act
+    result = list(stream_reply(fake_model, messages))
+
+    # Assert
+    assert result == ["Here ", "is ", "pasta."]
+    fake_model.stream.assert_called_once_with(messages)
+
+
+def test_stream_reply_skips_empty_content_chunks():
+    # Arrange
+    fake_model = MagicMock()
+    chunks = [FakeChunk(""), FakeChunk("Hello"), FakeChunk(None), FakeChunk(" world")]
+    fake_model.stream.return_value = iter(chunks)
+
+    # Act
+    result = list(stream_reply(fake_model, []))
+
+    # Assert
+    assert result == ["Hello", " world"]
+
+
+def test_stream_reply_skips_missing_content_attribute():
+    # Arrange
+    fake_model = MagicMock()
+    chunks = [FakeChunkNoContent(), FakeChunk("OK")]
+    fake_model.stream.return_value = iter(chunks)
+
+    # Act — must not raise AttributeError
+    result = list(stream_reply(fake_model, []))
+
+    # Assert
+    assert result == ["OK"]
+
+
+def test_stream_reply_calls_stream_once_with_messages():
+    # Arrange
+    fake_model = MagicMock()
+    messages = [HumanMessage(content="test")]
+    fake_model.stream.return_value = iter([FakeChunk("done")])
+
+    # Act
+    list(stream_reply(fake_model, messages))
+
+    # Assert
+    fake_model.stream.assert_called_once_with(messages)
 
 
 # ---------------------------------------------------------------------------

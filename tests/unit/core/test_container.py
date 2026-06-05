@@ -233,3 +233,80 @@ def test_create_container_calls_load_settings_when_none():
     # Assert
     mock_load.assert_called_once()
     assert container.settings is fake_settings
+
+
+# ---------------------------------------------------------------------------
+# Container.chat_model — deferred import, lazy construction and caching (WLI-01..03)
+# ---------------------------------------------------------------------------
+
+
+def test_container_chat_model_constructed_with_correct_args():
+    # Arrange
+    settings = make_settings()
+    container = Container(settings)
+
+    # Act
+    with patch("langchain_nvidia_ai_endpoints.ChatNVIDIA") as mock_chat_cls:
+        mock_chat = MagicMock()
+        mock_chat_cls.return_value = mock_chat
+
+        result = container.chat_model
+
+    # Assert
+    mock_chat_cls.assert_called_once_with(
+        model=settings.nvidia_model,
+        api_key=settings.nvidia_api_key,
+    )
+    assert result is mock_chat
+
+
+def test_container_chat_model_cached_on_repeated_access():
+    # Arrange
+    settings = make_settings()
+    container = Container(settings)
+
+    # Act
+    with patch("langchain_nvidia_ai_endpoints.ChatNVIDIA") as mock_chat_cls:
+        mock_chat = MagicMock()
+        mock_chat_cls.return_value = mock_chat
+
+        first = container.chat_model
+        second = container.chat_model
+
+    # Assert
+    mock_chat_cls.assert_called_once()
+    assert first is second
+
+
+def test_container_chat_model_propagates_empty_model_string():
+    # Arrange
+    settings = Settings(
+        nvidia_api_key="k",
+        nvidia_model="",
+        nvidia_embed_model="nvidia/embed-test",
+        db_url="postgresql+psycopg://user:pass@localhost/testdb",
+    )
+    container = Container(settings)
+
+    # Act
+    with patch("langchain_nvidia_ai_endpoints.ChatNVIDIA") as mock_chat_cls:
+        mock_chat_cls.return_value = MagicMock()
+        container.chat_model
+
+    # Assert
+    mock_chat_cls.assert_called_once_with(model="", api_key="k")
+
+
+def test_container_chat_model_does_not_access_engine():
+    # Arrange
+    settings = make_settings()
+    container = Container(settings)
+
+    # Act
+    with patch("langchain_nvidia_ai_endpoints.ChatNVIDIA") as mock_chat_cls:
+        mock_chat_cls.return_value = MagicMock()
+        container.chat_model
+
+    # Assert — no DB-related fields were touched
+    assert container._engine is None
+    assert container._session_factory is None

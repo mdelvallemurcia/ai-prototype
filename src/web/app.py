@@ -1,5 +1,6 @@
 import streamlit as st
 
+from src.core.container import create_container
 from src.web import handlers
 
 st.set_page_config(page_title="MealMate AI", page_icon="🍽️")
@@ -8,6 +9,12 @@ st.caption("Your AI-powered recipe assistant")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
+
+
+@st.cache_resource
+def _get_container():
+    return create_container()
+
 
 # --- Render history -----------------------------------------------------------
 for message in st.session_state.messages:
@@ -41,13 +48,31 @@ if chat_value:
     if not text and not file_metas:
         st.stop()
 
-    # Build echo response
-    echo = handlers.build_echo_response(text, file_metas)
-
     # Append user turn
     st.session_state.messages.append({"role": "user", "content": text, "files": file_metas})
 
-    # Append assistant turn
-    st.session_state.messages.append({"role": "assistant", "content": echo, "files": []})
+    # Render the user turn inline (history loop already ran above without this turn)
+    with st.chat_message("user"):
+        st.markdown(text)
+        for file_meta in file_metas:
+            if file_meta.get("thumbnail"):
+                st.image(file_meta["thumbnail"])
+            else:
+                st.markdown(f"📄 {file_meta['name']}")
 
-    st.rerun()
+    # Build LangChain messages from history snapshot (user turn included, assistant NOT yet)
+    lc_messages = handlers.to_langchain_messages(st.session_state.messages)
+
+    # Stream assistant reply
+    container = _get_container()
+    try:
+        with st.chat_message("assistant"):
+            reply: str = st.write_stream(handlers.stream_reply(container.chat_model, lc_messages))
+    except Exception:
+        reply = "Sorry, I could not reach the AI service. Check your API key and try again."
+        with st.chat_message("assistant"):
+            st.warning(reply)
+
+    # Persist joined reply
+    st.session_state.messages.append({"role": "assistant", "content": reply, "files": []})
+    # No st.rerun() — write_stream renders inline during execution

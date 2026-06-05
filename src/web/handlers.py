@@ -5,10 +5,14 @@ No Streamlit import. All functions accept duck-typed inputs
 direct unit testing without a Streamlit runtime.
 """
 
+from __future__ import annotations
+
 import base64
 import io
+from collections.abc import Iterator
 from typing import Any
 
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from PIL import Image
 
 ALLOWED_MIME_TYPES: frozenset[str] = frozenset(
@@ -32,26 +36,40 @@ IMAGE_MIME_TYPES: frozenset[str] = frozenset(
 
 THUMBNAIL_MAX: tuple[int, int] = (256, 256)
 
+SYSTEM_PROMPT: str = (
+    "You are MealMate, an AI recipe and meal-planning assistant. "
+    "Help users find, choose, adapt, and discover recipes. "
+    "Answer questions about ingredients, cooking techniques, and meal planning. "
+    "Stay focused on the food, recipes, and meals domain. "
+    "If a question is unrelated to food or cooking, politely redirect the conversation."
+)
 
-def build_echo_response(text: str, files: list[dict]) -> str:
-    """Build the assistant echo string for a submitted message.
 
-    Args:
-        text: The user's text input (may be empty string).
-        files: List of file metadata dicts already validated/extracted.
+def to_langchain_messages(history: list[dict]) -> list:
+    """Map session history to LangChain message objects.
 
-    Returns:
-        Echo string in the form ``"Mensaje recibido: 'text'"``
-        with an optional attachment count suffix.
+    Prepends SystemMessage(SYSTEM_PROMPT). Maps role 'user' -> HumanMessage,
+    'assistant' -> AIMessage. Only the 'content' field is used; all other keys
+    (including 'files') are ignored (satisfies WLI-10).
     """
-    file_count = len(files)
-    base = f"Mensaje recibido: '{text}'"
+    messages: list = [SystemMessage(content=SYSTEM_PROMPT)]
+    role_map: dict = {"user": HumanMessage, "assistant": AIMessage}
+    for entry in history:
+        cls = role_map.get(entry["role"])
+        if cls is not None:
+            messages.append(cls(content=entry["content"]))
+    return messages
 
-    if file_count == 0:
-        return base
-    if file_count == 1:
-        return f"{base} (1 archivo adjunto)"
-    return f"{base} ({file_count} archivos adjuntos)"
+
+def stream_reply(chat_model: Any, messages: list) -> Iterator[str]:
+    """Yield non-empty text chunks from chat_model.stream(messages).
+
+    Defensively reads chunk.content via getattr; skips falsy values (WLI-07).
+    """
+    for chunk in chat_model.stream(messages):
+        text: str = getattr(chunk, "content", "") or ""
+        if text:
+            yield text
 
 
 def _make_thumbnail(data: bytes, max_size: tuple[int, int] = THUMBNAIL_MAX) -> str | None:

@@ -9,7 +9,7 @@ from src.core.config import Settings, load_settings
 
 if TYPE_CHECKING:
     from langchain_core.vectorstores import VectorStoreRetriever
-    from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
+    from langchain_nvidia_ai_endpoints import ChatNVIDIA, NVIDIAEmbeddings
     from langchain_postgres import PGVector
 
 
@@ -21,6 +21,7 @@ class Container:
         self._embeddings: NVIDIAEmbeddings | None = None
         self._vector_store: PGVector | None = None
         self._retriever: VectorStoreRetriever | None = None
+        self._chat_model: ChatNVIDIA | None = None
 
     @property
     def settings(self) -> Settings:
@@ -40,6 +41,17 @@ class Container:
 
     def get_session(self) -> Session:
         return self.session_factory()
+
+    @property
+    def chat_model(self) -> ChatNVIDIA:
+        if self._chat_model is None:
+            from langchain_nvidia_ai_endpoints import ChatNVIDIA
+
+            self._chat_model = ChatNVIDIA(
+                model=self._settings.nvidia_model,
+                api_key=self._settings.nvidia_api_key,
+            )
+        return self._chat_model
 
     @property
     def embeddings(self) -> NVIDIAEmbeddings:
