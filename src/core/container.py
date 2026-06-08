@@ -73,6 +73,7 @@ class Container:
                 connection=self._settings.db_url,
                 embeddings=self.embeddings,
                 collection_name="recipes",
+                distance_strategy="cosine",
             )
         return self._vector_store
 

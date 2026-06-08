@@ -16,6 +16,7 @@ dependencies = [
     "yt-dlp>=2024.0",
     "beautifulsoup4>=4.12",
     "pypdf>=5.0",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]

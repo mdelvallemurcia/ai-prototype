@@ -8,12 +8,12 @@
 | 400-line budget risk | High |
 | Chained PRs recommended | Yes |
 | Suggested split | PR 1 → PR 2 → PR 3 |
-| Delivery strategy | ask-on-risk |
-| Chain strategy | pending |
+| Delivery strategy | ask-on-risk (resolved → chained PRs) |
+| Chain strategy | stacked-to-main |
 
-Decision needed before apply: Yes
+Decision needed before apply: Resolved — see decisions (id 455)
 Chained PRs recommended: Yes
-Chain strategy: pending
+Chain strategy: stacked-to-main
 400-line budget risk: High
 
 ### Suggested Work Units
@@ -26,26 +26,26 @@ Chain strategy: pending
 
 ## Phase 1: Setup & Dependencies
 
-- [ ] 1.1 Add `pyyaml>=6.0` to `[project].dependencies` in `pyproject.toml`
-- [ ] 1.2 Run `uv sync` to install the new dependency
+- [x] 1.1 Add `pyyaml>=6.0` to `[project].dependencies` in `pyproject.toml`
+- [x] 1.2 Run `uv sync` to install the new dependency
 
 ## Phase 2: Task-list Parsing (`src/worker/tasks.py`)
 
-- [ ] 2.1 RED — write `tests/unit/worker/test_tasks.py::test_load_task_file_valid_yaml_returns_tasks`
-- [ ] 2.2 RED — write `test_load_task_file_valid_json_returns_tasks`
-- [ ] 2.3 RED — write `test_load_task_file_missing_file_raises_error`, `test_load_task_file_malformed_content_raises_error`, `test_load_task_file_empty_list_returns_empty_list`, `test_load_task_file_missing_required_field_raises_error`, `test_load_task_file_unknown_type_raises_error`
-- [ ] 2.4 GREEN — create `src/worker/tasks.py`: `Task` frozen dataclass (`source_type`, `source`, `metadata`) and `load_task_file(path) -> list[Task]`, dispatch by extension (`.yaml/.yml` → pyyaml, `.json` → json), validate `type`/`source`/unknown-type/empty-list per spec req. 1
-- [ ] 2.5 REFACTOR — confirm all Phase 2 tests pass and clean up parsing helpers
+- [x] 2.1 RED — write `tests/unit/worker/test_tasks.py::test_load_task_file_valid_yaml_returns_tasks`
+- [x] 2.2 RED — write `test_load_task_file_valid_json_returns_tasks`
+- [x] 2.3 RED — write `test_load_task_file_missing_file_raises_error`, `test_load_task_file_malformed_content_raises_error`, `test_load_task_file_empty_list_returns_empty_list`, `test_load_task_file_missing_required_field_raises_error`, `test_load_task_file_unknown_type_raises_error`
+- [x] 2.4 GREEN — create `src/worker/tasks.py`: `Task` frozen dataclass (`source_type`, `source`, `metadata`) and `load_task_file(path) -> list[Task]`, dispatch by extension (`.yaml/.yml` → pyyaml, `.json` → json), validate `type`/`source`/unknown-type/empty-list per spec req. 1
+- [x] 2.5 REFACTOR — confirm all Phase 2 tests pass and clean up parsing helpers
 
 ## Phase 3: Metadata Contract & content_hash (`src/worker/metadata.py`)
 
-- [ ] 3.1 RED — write `tests/unit/worker/test_metadata.py::test_compute_content_hash_same_content_returns_same_hash` and `test_compute_content_hash_different_content_returns_different_hash` (pure, in-memory, no I/O)
-- [ ] 3.2 GREEN — implement `compute_content_hash(docs: list[Document]) -> str`: join `page_content` in loader order with `"\n"`, `.strip()`, UTF-8 encode, SHA-256 hexdigest
-- [ ] 3.3 RED — write `test_build_base_metadata_title_override_uses_task_metadata_title` and `test_build_base_metadata_no_override_falls_back_to_filename`
-- [ ] 3.4 GREEN — implement `build_base_metadata(task, docs) -> dict`: `source_url`, `source_type`, `title` (task override > loader-derived > `Path(source).stem`), `content_hash`
-- [ ] 3.5 RED — write `test_enrich_documents_assigns_sequential_chunk_index_and_constant_fields`
-- [ ] 3.6 GREEN — implement `enrich_documents(docs, base_metadata) -> list[Document]`: merge `{**doc.metadata, **base_metadata}` (reserved keys win, no clobber of loader-native keys) and assign 0-based `chunk_index` post-split
-- [ ] 3.7 REFACTOR — confirm Phase 3 tests pass and metadata helpers stay pure/I/O-free
+- [x] 3.1 RED — write `tests/unit/worker/test_metadata.py::test_compute_content_hash_same_content_returns_same_hash` and `test_compute_content_hash_different_content_returns_different_hash` (pure, in-memory, no I/O)
+- [x] 3.2 GREEN — implement `compute_content_hash(docs: list[Document]) -> str`: join `page_content` in loader order with `"\n"`, `.strip()`, UTF-8 encode, SHA-256 hexdigest
+- [x] 3.3 RED — write `test_build_base_metadata_title_override_uses_task_metadata_title` and `test_build_base_metadata_no_override_falls_back_to_filename`
+- [x] 3.4 GREEN — implement `build_base_metadata(task, docs) -> dict`: `source_url`, `source_type`, `title` (task override > loader-derived > `Path(source).stem`), `content_hash`
+- [x] 3.5 RED — write `test_enrich_documents_assigns_sequential_chunk_index_and_constant_fields`
+- [x] 3.6 GREEN — implement `enrich_documents(docs, base_metadata) -> list[Document]`: merge `{**doc.metadata, **base_metadata}` (reserved keys win, no clobber of loader-native keys) and assign 0-based `chunk_index` post-split
+- [x] 3.7 REFACTOR — confirm Phase 3 tests pass and metadata helpers stay pure/I/O-free
 
 ## Phase 4: Source-type Routing (`src/worker/router.py`)
 
@@ -63,8 +63,8 @@ Chain strategy: pending
 
 ## Phase 6: Container `distance_strategy`
 
-- [ ] 6.1 RED — write/extend `tests/unit/core/test_container.py::test_vector_store_uses_cosine_distance_strategy`
-- [ ] 6.2 GREEN — add `distance_strategy="cosine"` to the `PGVector(...)` construction in `src/core/container.py` `vector_store` lazy property
+- [x] 6.1 RED — write/extend `tests/unit/core/test_container.py::test_vector_store_uses_cosine_distance_strategy`
+- [x] 6.2 GREEN — add `distance_strategy="cosine"` to the `PGVector(...)` construction in `src/core/container.py` `vector_store` lazy property
 
 ## Phase 7: CLI Runner — `--tasks` (`src/worker/cli.py`)
 

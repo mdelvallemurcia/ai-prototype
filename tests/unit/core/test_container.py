@@ -170,9 +170,29 @@ def test_container_vector_store_constructed_with_correct_args():
         connection=settings.db_url,
         embeddings=mock_embeddings,
         collection_name="recipes",
+        distance_strategy="cosine",
     )
     assert vs_first is mock_vector_store
     assert vs_second is mock_vector_store
+
+
+def test_container_vector_store_uses_cosine_distance_strategy():
+    # Arrange
+    settings = make_settings()
+    container = Container(settings)
+
+    # Act
+    with (
+        patch("langchain_nvidia_ai_endpoints.NVIDIAEmbeddings"),
+        patch("langchain_postgres.PGVector") as mock_pgvector_cls,
+    ):
+        mock_pgvector_cls.return_value = MagicMock()
+
+        container.vector_store
+
+    # Assert
+    _, kwargs = mock_pgvector_cls.call_args
+    assert kwargs["distance_strategy"] == "cosine"
 
 
 # ---------------------------------------------------------------------------
