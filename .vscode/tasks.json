@@ -1,0 +1,34 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start MealMate DB",
+      "detail": "Bring up the PostgreSQL + pgvector container (idempotent; waits until healthy).",
+      "type": "shell",
+      "command": "docker compose -f deploy/docker-compose.yml up -d --wait",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared",
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Stop MealMate DB",
+      "detail": "Stop the PostgreSQL + pgvector container (keeps the data volume).",
+      "type": "shell",
+      "command": "docker compose -f deploy/docker-compose.yml stop",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

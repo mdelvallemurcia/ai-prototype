@@ -2,7 +2,9 @@
 
 from unittest.mock import MagicMock, patch
 
-from src.worker.pipeline import IngestResult, ingest_task
+import tiktoken
+
+from src.worker.pipeline import _CHUNK_TOKENS, IngestResult, ingest_task
 from src.worker.tasks import Task
 
 
@@ -71,6 +73,35 @@ def test_ingest_task_new_source_uses_per_source_content_hash(mock_loader_for, mo
     called_hash = mock_exists.call_args[0][1]
     stored_chunks = container.vector_store.add_documents.call_args[0][0]
     assert all(chunk.metadata["content_hash"] == called_hash for chunk in stored_chunks)
+
+
+# ---------------------------------------------------------------------------
+# Chunking — every chunk must respect the embed model's 512-token input limit
+# ---------------------------------------------------------------------------
+
+
+@patch("src.worker.pipeline._content_hash_exists", return_value=False)
+@patch("src.worker.pipeline.loader_for")
+def test_ingest_task_long_document_chunks_stay_within_token_budget(mock_loader_for, mock_exists):
+    # Arrange
+    # nvidia/nv-embedqa-e5-v5 caps input at 512 tokens. The pipeline must split long
+    # documents into chunks that stay within the configured tiktoken budget so the
+    # NVIDIA embeddings API never receives an over-limit request.
+    task = Task(source_type="pdf", source="/recipes/long.pdf", metadata={})
+    long_text = "The quick brown fox jumps over the lazy dog and runs through the meadow. " * 200
+    docs = [make_doc(long_text)]
+    mock_loader_for.return_value = MagicMock(return_value=docs)
+    container = make_container()
+    encoding = tiktoken.get_encoding("cl100k_base")
+
+    # Act
+    result = ingest_task(container, task)
+
+    # Assert
+    assert result.chunks > 1
+    stored_chunks = container.vector_store.add_documents.call_args[0][0]
+    for chunk in stored_chunks:
+        assert len(encoding.encode(chunk.page_content)) <= _CHUNK_TOKENS
 
 
 # ---------------------------------------------------------------------------

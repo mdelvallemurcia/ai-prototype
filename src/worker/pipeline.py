@@ -13,6 +13,13 @@ from src.worker.tasks import Task
 if TYPE_CHECKING:
     from src.core.container import Container
 
+# The embedding model (nvidia/nv-embedqa-e5-v5, see MEALMATE_NVIDIA_EMBED_MODEL) caps
+# input at 512 tokens. tiktoken over-counts vs. the NVIDIA tokenizer for this content
+# (observed: 4000 chars ≈ 704 NVIDIA tokens ≈ ~1000 tiktoken tokens), so a 448-tiktoken
+# budget maps to comfortably under 512 NVIDIA tokens — a deliberate safety margin.
+_CHUNK_TOKENS = 448
+_CHUNK_OVERLAP_TOKENS = 64
+
 # langchain-postgres creates langchain_pg_embedding lazily on the first add_documents().
 # Guard the lookup so a fresh database (table not created yet) is treated as "nothing stored".
 _TABLE_EXISTS_QUERY = text("SELECT to_regclass('langchain_pg_embedding')")
@@ -47,7 +54,9 @@ def ingest_task(container: Container, task: Task) -> IngestResult:
     if _content_hash_exists(container, content_hash):
         return IngestResult(status="skipped", source=task.source, chunks=0)
 
-    splitter = RecursiveCharacterTextSplitter()
+    splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
+        chunk_size=_CHUNK_TOKENS, chunk_overlap=_CHUNK_OVERLAP_TOKENS
+    )
     chunks = splitter.split_documents(docs)
     enriched_chunks = enrich_documents(chunks, base_metadata)
 

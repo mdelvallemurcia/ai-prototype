@@ -9,7 +9,7 @@
 #   metadata: optional extra fields, merged into every stored chunk's metadata
 
 - type: pdf
-  source: docs/Mediterranean_Diet_Comprehensive_Treatise.pdf
+  source: examples/docs/Mediterranean_Diet_Comprehensive_Treatise.pdf
   metadata:
     cuisine: italian        # optional, free-form
 
