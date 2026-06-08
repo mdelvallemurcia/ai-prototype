@@ -1,0 +1,32 @@
+# Example task list for the MealMate worker ingestion CLI.
+#
+# Run with:
+#   uv run python -m src.worker.cli ingest --tasks examples/ingest-tasks.example.yaml
+#
+# The file is a list of tasks. Each task is a mapping:
+#   type:     one of "pdf", "youtube", "web"  (only "pdf" is implemented today)
+#   source:   path or URL to ingest
+#   metadata: optional extra fields, merged into every stored chunk's metadata
+
+- type: pdf
+  source: docs/Mediterranean_Diet_Comprehensive_Treatise.pdf
+  metadata:
+    cuisine: italian        # optional, free-form
+
+
+
+# --- Deferred source types --------------------------------------------------
+# "youtube" and "web" are recognized by the task parser but their loaders are
+# not implemented yet (a future change). Leaving them enabled would make those
+# tasks report [failed] while the rest of the run continues. Uncomment once the
+# youtube/web slices ship.
+#
+# - type: web
+#   source: https://example.com/recipes/pasta-carbonara
+#
+# - type: youtube
+#   source: https://www.youtube.com/watch?v=VIDEO_ID
+#
+####
+# - type: pdf
+#   source: /absolute/path/to/another-recipe.pdf
