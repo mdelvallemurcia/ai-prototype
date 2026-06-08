@@ -108,6 +108,7 @@ def test_content_hash_exists_returns_true_when_row_found():
     from src.worker.pipeline import _content_hash_exists
 
     connection = MagicMock()
+    connection.execute.return_value.scalar.return_value = "langchain_pg_embedding"
     connection.execute.return_value.first.return_value = (1,)
     container = MagicMock()
     container.engine.connect.return_value.__enter__.return_value = connection
@@ -117,7 +118,26 @@ def test_content_hash_exists_returns_true_when_row_found():
 
     # Assert
     assert found is True
-    connection.execute.assert_called_once()
+    # Two queries: the table-existence guard, then the content_hash lookup.
+    assert connection.execute.call_count == 2
+
+
+def test_content_hash_exists_returns_false_when_table_missing():
+    # Arrange
+    from src.worker.pipeline import _content_hash_exists
+
+    connection = MagicMock()
+    connection.execute.return_value.scalar.return_value = None  # table not created yet
+    container = MagicMock()
+    container.engine.connect.return_value.__enter__.return_value = connection
+
+    # Act
+    found = _content_hash_exists(container, "abc123")
+
+    # Assert
+    assert found is False
+    # Only the existence guard ran; the lookup query is skipped on a fresh DB.
+    assert connection.execute.call_count == 1
 
 
 def test_content_hash_exists_returns_false_when_no_row_found():

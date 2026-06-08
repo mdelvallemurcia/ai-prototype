@@ -13,6 +13,9 @@ from src.worker.tasks import Task
 if TYPE_CHECKING:
     from src.core.container import Container
 
+# langchain-postgres creates langchain_pg_embedding lazily on the first add_documents().
+# Guard the lookup so a fresh database (table not created yet) is treated as "nothing stored".
+_TABLE_EXISTS_QUERY = text("SELECT to_regclass('langchain_pg_embedding')")
 _EXISTENCE_QUERY = text(
     "SELECT 1 FROM langchain_pg_embedding WHERE cmetadata->>'content_hash' = :content_hash LIMIT 1"
 )
@@ -28,6 +31,8 @@ class IngestResult:
 
 def _content_hash_exists(container: Container, content_hash: str) -> bool:
     with container.engine.connect() as connection:
+        if connection.execute(_TABLE_EXISTS_QUERY).scalar() is None:
+            return False
         row = connection.execute(_EXISTENCE_QUERY, {"content_hash": content_hash}).first()
     return row is not None
 

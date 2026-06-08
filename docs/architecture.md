@@ -61,13 +61,21 @@ Single-file Streamlit app (`app.py`).
 
 ### 3. Ingestion Pipeline (`src/worker/`)
 
-CLI tool for feeding content into the vector store.
+CLI tool for feeding content into the vector store, driven by a task-list file (YAML or JSON).
 
 ```
-Source (URL/file) → Loader → Documents → Splitter → Chunks → Embeddings → pgvector
+Task-list file → Task → Router → Loader → Documents → Metadata enrichment
+              → content_hash dedup check → Splitter → Chunks → Embeddings → pgvector
 ```
 
-**Entry point**: `uv run python -m src.worker.cli ingest --source <url-or-path>`
+**Entry point**: `uv run python -m src.worker.cli ingest --tasks <path-to-task-list.yaml>`
+
+Each entry in the task-list file declares `type` (`pdf` | `youtube` | `web`), `source`
+(path or URL), and optional `metadata` overrides (e.g. `title`). The CLI parses and
+validates the whole file up front (`src/worker/tasks.py`), then runs each task through
+the pipeline with **per-task error isolation**: a failing task is recorded and the run
+continues; a summary is printed at the end and the process exits non-zero if any task
+failed.
 
 #### Loaders (`src/worker/loaders/`)
 
@@ -77,20 +85,42 @@ Source (URL/file) → Loader → Documents → Splitter → Chunks → Embedding
 | `pdf.py` | `PyPDFLoader` | Reads local PDF files |
 | `web.py` | `WebBaseLoader` | Scrapes web pages |
 
-All loaders return `list[Document]`.
+All loaders return `list[Document]`. Routing (`src/worker/router.py`) is an explicit
+factory — `pdf` is wired end-to-end; `youtube` and `web` are recognized but currently
+raise `NotImplementedError` (deferred to a separate change; isolated as a failed task,
+not a crash).
+
+#### Metadata contract (`src/worker/metadata.py`)
+
+Every persisted chunk carries a normalized metadata shape, computed once per source
+before chunking: `source_url`, `source_type`, `title` (task override > loader-derived >
+filename/URL fallback), `content_hash` (SHA-256 over the source's concatenated raw
+text), and `chunk_index` (0-based, assigned after splitting).
 
 #### Chunking
 
-- Splitter: `RecursiveCharacterTextSplitter` (splits by paragraphs → sentences → characters)
-- `chunk_size` and `chunk_overlap`: using LangChain library defaults — not yet configured in project code
-- Not yet tuned for recipe content — see [ADR-005](decisions/005-chunking-strategy.md)
-- **Not yet implemented** — the splitter is not wired into the ingestion pipeline
+- Splitter: `RecursiveCharacterTextSplitter`, used with library defaults — `chunk_size`
+  and `chunk_overlap` are intentionally NOT tuned; see [ADR-005](decisions/005-chunking-strategy.md)
+  for the rationale and future tuning plan.
+
+#### Idempotent re-ingest (dedup)
+
+Before chunking/embedding, the pipeline (`src/worker/pipeline.py`) checks whether a
+chunk with the same `content_hash` already exists in the `recipes` collection (raw,
+parameterized read against `langchain_pg_embedding.cmetadata`). A match skips the whole
+task — no embedding calls, no writes. Changed content (different hash) is treated as a
+new, additive ingest; replace/delete-on-change is explicitly out of scope for now.
 
 #### Storage
 
-Chunks are embedded via `NVIDIAEmbeddings` and stored in the `recipes` collection in pgvector via `vector_store.add_documents()`.
+Chunks are embedded via `Container.embeddings` (`NVIDIAEmbeddings`) and stored in the
+`recipes` collection in pgvector via `Container.vector_store.add_documents()`, using
+cosine distance.
 
-**Current status**: Loaders exist but routing, chunking, and storage are stubs.
+**Current status**: PDF ingestion (routing → chunking → embedding → idempotent storage)
+is implemented and covered end-to-end (unit + Testcontainers integration tests).
+YouTube and web ingestion remain deferred — the loaders exist but are not yet wired
+into the router.
 
 ## RAG Chain (Planned)
 
