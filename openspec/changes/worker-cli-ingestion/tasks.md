@@ -49,17 +49,17 @@ Chain strategy: stacked-to-main
 
 ## Phase 4: Source-type Routing (`src/worker/router.py`)
 
-- [ ] 4.1 RED — write `tests/unit/worker/test_router.py::test_loader_for_pdf_returns_pdf_loader`, `test_loader_for_youtube_raises_not_implemented`, `test_loader_for_web_raises_not_implemented`, `test_loader_for_unknown_type_raises_value_error`
-- [ ] 4.2 GREEN — implement `loader_for(source_type: str) -> Callable[[str], list[Document]]`: explicit factory dict; `pdf` → existing PDF loader; `youtube`/`web` raise `NotImplementedError`; unknown raises `ValueError`
+- [x] 4.1 RED — write `tests/unit/worker/test_router.py::test_loader_for_pdf_returns_pdf_loader`, `test_loader_for_youtube_raises_not_implemented_error`, `test_loader_for_web_raises_not_implemented_error`, `test_loader_for_unknown_type_raises_value_error`
+- [x] 4.2 GREEN — implement `loader_for(source_type: str) -> Callable[[str], list[Document]]`: explicit factory; `pdf` → existing PDF loader; `youtube`/`web` raise `NotImplementedError`; unknown raises `ValueError`
 
 ## Phase 5: Pipeline Orchestration & Dedup/SKIP (`src/worker/pipeline.py`)
 
-- [ ] 5.1 RED — write `tests/unit/worker/test_pipeline.py::test_ingest_documents_existing_hash_returns_skipped_without_embedding`
-- [ ] 5.2 GREEN — implement dedup check `_content_hash_exists(container, content_hash) -> bool` via raw SQL `SELECT 1 FROM langchain_pg_embedding WHERE cmetadata->>'content_hash' = :h LIMIT 1` using `Container.engine` + bound params
-- [ ] 5.3 RED — write `test_ingest_documents_new_source_chunks_embeds_and_stores_returns_stored`
-- [ ] 5.4 RED — write `test_ingest_documents_changed_content_adds_new_chunks_alongside_old`
-- [ ] 5.5 GREEN — implement `IngestResult` dataclass (`status`, `source`, `chunks`, `reason`) and `ingest_documents(container, task, docs) -> IngestResult`: compute hash → dedup check → SKIP or split (`RecursiveCharacterTextSplitter`, ADR-005 defaults) → re-attach `chunk_index` → `container.vector_store.add_documents()` → `stored`
-- [ ] 5.6 REFACTOR — confirm Phase 5 tests pass; mocks cover loader, embeddings, and dedup query (no real DB/network)
+- [x] 5.1 RED — write `tests/unit/worker/test_pipeline.py::test_ingest_task_existing_content_hash_skips_without_storing` (+ `_content_hash_exists` true/false/bound-param tests)
+- [x] 5.2 GREEN — implement dedup check `_content_hash_exists(container, content_hash) -> bool` via raw parameterized SQL `text("SELECT 1 FROM langchain_pg_embedding WHERE cmetadata->>'content_hash' = :content_hash LIMIT 1")` using `Container.engine.connect()` + bound params (verified table/column names against installed langchain-postgres 0.0.17 source)
+- [x] 5.3 RED — write `test_ingest_task_new_source_stores_chunks_with_full_metadata`
+- [x] 5.4 RED — write `test_ingest_task_new_source_uses_per_source_content_hash`
+- [x] 5.5 GREEN — implement `IngestResult` dataclass (`status`, `source`, `chunks`, `reason`) and `ingest_task(container, task) -> IngestResult`: load via `loader_for` → `build_base_metadata` (per-source content_hash) → dedup check → SKIP or split (`RecursiveCharacterTextSplitter()` library defaults, ADR-005) → `enrich_documents` re-attaches `chunk_index` → `container.vector_store.add_documents()` → `stored`
+- [x] 5.6 REFACTOR — confirm Phase 5 tests pass; mocks cover loader, vector_store/embeddings, and dedup query via mocked `container.engine.connect()` (no real DB/network)
 
 ## Phase 6: Container `distance_strategy`
 
